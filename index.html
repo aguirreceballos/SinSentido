@@ -1,6 +1,672 @@
 <!DOCTYPE html>
 <html lang="es">
+<head><!DOCTYPE html>
+<html lang="es">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SinSentido · Contratos</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#ffffff;--bg:#f5f5f2;--black:#0d0d0d;--gold:#c9a227;
+  --border:#e3e3de;--mid:#999;--card:0 1px 3px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04);
+  --red:#dc2626;--green:#16a34a;--light:#f0efe9;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--black);font-family:'DM Mono',monospace;font-size:13px;-webkit-font-smoothing:antialiased}
+.screen{display:none;min-height:100vh;flex-direction:column}
+.screen.active{display:flex;animation:up .2s ease}
+@keyframes up{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* BANNER */
+#setupBanner{background:var(--black);color:#c9a227;padding:11px 20px;font-size:11px;letter-spacing:.05em;display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:2px solid var(--gold)}
+#setupBanner.hidden{display:none}
+
+/* HEADER */
+.hdr{background:var(--black);border-bottom:1px solid #222;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.logo-img{width:36px;height:36px;object-fit:contain;flex-shrink:0}
+.hdr-txt .brand{font-family:'Playfair Display',serif;font-size:15px;line-height:1;color:#ffffff}
+.hdr-txt .sub{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#666;margin-top:2px}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+/* BUTTONS */
+.btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;border:none;padding:10px 18px;border-radius:9px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-gold{background:var(--gold);color:var(--black)}.btn-gold:hover{background:#b8911f}
+.btn-outline{background:transparent;border:1px solid #444;color:#aaa}.btn-outline:hover{border-color:#888;color:#fff}
+.btn-white{background:#fff;color:var(--black)}.btn-white:hover{background:#eee}
+.btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:8px 14px;border-radius:7px;cursor:pointer}
+
+/* LAYOUT */
+.body{flex:1;overflow-y:auto;padding:20px}
+.footer-bar{background:var(--white);border-top:1px solid var(--border);padding:14px 20px}
+.footer-bar .btn{width:100%;justify-content:center;padding:14px;font-size:12px}
+.slabel{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid);margin-bottom:12px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:var(--card)}
+.card-accent{border-top:3px solid var(--gold)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.stat{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--card)}
+.stat .n{font-family:'Playfair Display',serif;font-size:26px;line-height:1;color:var(--black)}
+.stat .l{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid);margin-top:4px}
+
+/* CONTRACT ITEMS */
+.c-item{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:var(--card);cursor:pointer;transition:transform .12s;position:relative;overflow:hidden}
+.c-item:active{transform:scale(.99)}
+.c-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border)}
+.c-item.pendiente::before{background:#f59e0b}
+.c-item.firmado::before{background:var(--green)}
+.c-item.cancelado::before{background:var(--red)}
+.c-name{font-family:'Playfair Display',serif;font-size:16px;margin-bottom:6px}
+.c-meta{display:flex;gap:10px;flex-wrap:wrap}
+.c-meta span{font-size:10px;color:var(--mid)}
+.c-meta span b{color:var(--black);font-weight:400}
+.c-pill{font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:20px}
+.c-pill.pendiente{background:#fef3c7;color:#92400e}
+.c-pill.firmado{background:#dcfce7;color:var(--green)}
+.c-pill.cancelado{background:#fee2e2;color:var(--red)}
+.c-pill-abs{position:absolute;right:14px;top:14px}
+
+/* FORM */
+.form-group{margin-bottom:15px}
+.form-group label{display:block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--mid);margin-bottom:5px}
+.form-group input,.form-group select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none;transition:border .15s;-webkit-appearance:none}
+.form-group input:focus,.form-group select:focus{border-color:#aaa;background:var(--white)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.calc-box{background:var(--light);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:4px}
+.calc-row{display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid var(--border)}
+.calc-row:last-child{border-bottom:none;font-size:13px}
+.calc-row span:first-child{color:var(--mid)}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.tl{font-size:12px}.ts{font-size:10px;color:var(--mid);margin-top:2px}
+.switch{position:relative;width:40px;height:22px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#ddd;border-radius:22px;transition:.2s;cursor:pointer}
+.slider::before{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;left:3px;top:3px;transition:.2s}
+input:checked+.slider{background:var(--black)}
+input:checked+.slider::before{transform:translateX(18px)}
+
+/* CLIENT CONTRACT */
+.contract-hero{background:var(--black);padding:28px 20px 24px;text-align:center;border-bottom:2px solid var(--gold)}
+.contract-hero img{width:72px;height:72px;object-fit:contain;margin-bottom:12px}
+.contract-hero .ch-title{font-family:'Playfair Display',serif;font-size:14px;color:#ffffff;letter-spacing:.05em;margin-bottom:2px}
+.contract-hero .ch-sub{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:#888}
+.ef label{display:block;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid);margin-bottom:3px}
+.ef span{font-size:12px}
+.ef.full{grid-column:1/-1}
+.event-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.pay-row:last-child{border-bottom:none}
+.pay-row .pl{font-size:12px;color:#555}
+.pay-row .pl small{display:block;font-size:9px;color:var(--mid);margin-top:2px}
+.pay-row .pa{font-size:14px;color:var(--black)}
+.pay-row.total .pl{font-size:13px;color:var(--black)}
+.pay-row.total .pa{font-size:17px;color:var(--gold);font-weight:400}
+.clause{padding:12px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.75;color:#555}
+.clause:last-child{border-bottom:none;padding-bottom:0}
+.clause strong{color:var(--black);font-weight:400;display:block;margin-bottom:3px;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+
+/* SIGNATURE */
+.canvas-outer{position:relative;border:1px dashed #ccc;border-radius:10px;background:#fafaf8;overflow:hidden;touch-action:none}
+.canvas-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .3s}
+.canvas-ph span{font-size:11px;color:#ccc;letter-spacing:.15em}
+canvas#sigCanvas{display:block;width:100%;height:140px}
+.check-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--black);flex-shrink:0;margin-top:1px;cursor:pointer}
+.check-row label{font-size:11px;color:#666;line-height:1.6;cursor:pointer}
+
+/* LINK BOX */
+.link-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 13px;display:flex;align-items:center;gap:8px;margin-top:10px}
+.link-box span{font-size:10px;color:var(--mid);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.link-box button{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;background:var(--black);color:#fff;border:none;padding:6px 10px;border-radius:5px;cursor:pointer;white-space:nowrap}
+
+/* SUCCESS */
+#screen-success{align-items:center;justify-content:center;padding:40px 24px;text-align:center;background:var(--black)}
+.success-icon{width:70px;height:70px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 20px;animation:pop .4s cubic-bezier(.175,.885,.32,1.275) both}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.success-title{font-family:'Playfair Display',serif;font-size:26px;margin-bottom:8px;color:#fff}
+.success-sub{font-size:11px;color:#666;line-height:1.7;max-width:280px;margin:0 auto 24px}
+.sig-preview-box{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:14px;width:100%;max-width:340px;margin:0 auto 20px}
+.sig-preview-box img{width:100%;border-radius:6px;background:#fff}
+.sig-ts{font-size:9px;color:#555;margin-top:6px;letter-spacing:.08em}
+.meta-row{display:flex;justify-content:space-between;font-size:10px;color:#555;padding:10px 0;border-bottom:1px solid #222;width:100%;max-width:340px}
+.meta-row span:last-child{color:#fff}
+
+/* EMPTY + LOADER */
+.empty{text-align:center;padding:48px 20px}
+.empty .ei{font-size:38px;margin-bottom:12px}
+.empty .et{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:6px}
+.empty .es{font-size:11px;color:var(--mid);line-height:1.65}
+.loader{text-align:center;padding:40px;color:var(--mid);font-size:11px;letter-spacing:.12em}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadeO .2s}
+.modal-overlay.hidden{display:none}
+@keyframes fadeO{from{opacity:0}to{opacity:1}}
+.modal{background:var(--white);border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:520px;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h3{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:16px}
+pre{white-space:pre-wrap;word-break:break-all}
+input[type=date]{color-scheme:light}
+
+/* FOOTER CLIENT */
+#cli_footer .btn-gold{background:var(--gold);color:var(--black)}
+</style>
+</head>
+<body>
+
+<!-- BANNER -->
+<div id="setupBanner">
+  <span>⚙️</span> Configura Supabase para activar el sistema
+  <span style="margin-left:auto">→ Tocar aquí</span>
+</div>
+
+<!-- MODAL CONFIG -->
+<div class="modal-overlay hidden" id="configModal">
+  <div class="modal">
+    <h3>Configurar Supabase</h3>
+    <div class="form-group">
+      <label>URL del proyecto</label>
+      <input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co">
+    </div>
+    <div class="form-group">
+      <label>Anon / Public Key</label>
+      <input type="text" id="cfgKey" placeholder="eyJhbGci...">
+    </div>
+    <p style="font-size:10px;color:var(--mid);line-height:1.65;margin-bottom:10px">
+      Crea la tabla <b>contratos</b> en Supabase con el siguiente SQL:<br>
+      <span id="sqlToggle" style="color:var(--black);cursor:pointer;text-decoration:underline">Ver SQL →</span>
+    </p>
+    <pre id="sqlBox" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:9px;line-height:1.6;margin-bottom:14px">create table contratos (
+  id uuid primary key default gen_random_uuid(),
+  contratante_nombre text not null,
+  contratante_tel text,
+  contratante_dir text,
+  fecha_evento date not null,
+  lugar text not null,
+  ciudad_firma text,
+  duracion_horas numeric default 2,
+  monto_total numeric not null,
+  anticipo numeric not null,
+  saldo numeric not null,
+  fecha_limite_saldo date,
+  incluye_sonido boolean default false,
+  medio_pago text,
+  status text default 'pendiente',
+  firma_base64 text,
+  firmado_at timestamptz,
+  created_at timestamptz default now()
+);
+alter table contratos enable row level security;
+create policy "read" on contratos for select using (true);
+create policy "insert" on contratos for insert with check (true);
+create policy "update" on contratos for update using (true);</pre>
+    <button class="btn btn-white" style="width:100%;justify-content:center;background:var(--black);color:#fff" onclick="saveConfig()">Guardar y conectar</button>
+  </div>
+</div>
+
+<!-- SCREEN 1: DASHBOARD -->
+<div class="screen active" id="screen-dashboard">
+  <div class="hdr">
+    <img class="logo-img" src="logo.png" alt="SinSentido">
+    <div class="hdr-txt">
+      <div class="brand">SinSentido</div>
+      <div class="sub">Sistema de Contratos</div>
+    </div>
+    <div class="hdr-right">
+      <button class="btn btn-gold" onclick="goNuevo()">+ Nuevo</button>
+    </div>
+  </div>
+  <div class="body">
+    <div class="stats">
+      <div class="stat"><div class="n" id="sTot">—</div><div class="l">Total</div></div>
+      <div class="stat"><div class="n" id="sPend">—</div><div class="l">Pendientes</div></div>
+      <div class="stat"><div class="n" id="sFirm">—</div><div class="l">Firmados</div></div>
+      <div class="stat"><div class="n" id="sMes">—</div><div class="l">Mes actual</div></div>
+    </div>
+    <div class="slabel">Contratos</div>
+    <div id="listaContratos"><div class="loader">Cargando...</div></div>
+  </div>
+</div>
+
+<!-- SCREEN 2: NUEVO -->
+<div class="screen" id="screen-nuevo">
+  <div class="hdr">
+    <button class="btn btn-outline" onclick="goDashboard()">← Volver</button>
+    <div class="hdr-txt" style="margin-left:8px">
+      <div class="brand" style="color:#fff">Nuevo contrato</div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="card card-accent">
+      <div class="slabel">Contratante</div>
+      <div class="form-group">
+        <label>Nombre completo *</label>
+        <input type="text" id="f_nombre" placeholder="Ej. Josué Mendoza García">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input type="tel" id="f_tel" placeholder="+52 81 0000 0000">
+        </div>
+        <div class="form-group">
+          <label>Dirección</label>
+          <input type="text" id="f_dir" placeholder="Ciudad, estado">
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="slabel">Evento</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha del evento *</label>
+          <input type="date" id="f_fecha" oninput="calcPagos()">
+        </div>
+        <div class="form-group">
+          <label>Duración (horas)</label>
+          <input type="number" id="f_duracion" value="2" min="1" max="12" step="0.5">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Lugar del evento *</label>
+        <input type="text" id="f_lugar" placeholder="106 Main St., Balmorhea, TX">
+      </div>
+      <div class="form-group">
+        <label>Ciudad donde se firma</label>
+        <input type="text" id="f_ciudad" placeholder="Houston, Texas, EUA">
+      </div>
+    </div>
+    <div class="card">
+      <div class="slabel">Segunda. — Contraprestación económica</div>
+      <div class="form-group">
+        <label>Monto total (USD) *</label>
+        <input type="number" id="f_monto" placeholder="6000" min="0" step="100" oninput="calcPagos()">
+      </div>
+      <div id="calcBox" class="calc-box" style="display:none">
+        <div class="calc-row"><span>Anticipo al firmar (≈33%)</span><span id="cp_ant">—</span></div>
+        <div class="calc-row"><span>Saldo restante</span><span id="cp_sal">—</span></div>
+        <div class="calc-row"><span>Fecha límite del saldo</span><span id="cp_fl">—</span></div>
+        <div class="calc-row"><span>Hora extra (20%)</span><span id="cp_hex">—</span></div>
+        <div class="calc-row"><span>Total</span><span id="cp_tot">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="slabel">Cuarta. — Sonido e iluminación</div>
+      <div class="toggle-row">
+        <div><div class="tl">¿Incluye equipo de sonido?</div><div class="ts">Desactivado = el contratante provee equipo</div></div>
+        <label class="switch"><input type="checkbox" id="f_sonido"><span class="slider"></span></label>
+      </div>
+      <div class="form-group" style="margin-top:14px;margin-bottom:0">
+        <label>Medios de pago aceptados</label>
+        <input type="text" id="f_pago" value="Transferencia bancaria, cheque certificado, efectivo o Zelle">
+      </div>
+    </div>
+  </div>
+  <div class="footer-bar">
+    <button class="btn btn-gold" id="btnCrear" onclick="crearContrato()">Generar contrato →</button>
+  </div>
+</div>
+
+<!-- SCREEN 3: DETALLE -->
+<div class="screen" id="screen-detalle">
+  <div class="hdr">
+    <button class="btn btn-outline" onclick="goDashboard()">← Volver</button>
+    <div class="hdr-txt" style="margin-left:8px">
+      <div class="brand" id="d_nombre" style="color:#fff">Contrato</div>
+    </div>
+    <div class="hdr-right"><span class="c-pill" id="d_pill">—</span></div>
+  </div>
+  <div class="body">
+    <div class="card card-accent">
+      <div class="slabel">Link para el cliente</div>
+      <p style="font-size:11px;color:var(--mid);line-height:1.65;margin-bottom:10px">Copia y manda por WhatsApp. El cliente lee el contrato completo y firma desde su celular.</p>
+      <div class="link-box">
+        <span id="d_link">—</span>
+        <button onclick="copyLink()">Copiar</button>
+      </div>
+    </div>
+    <div class="card" id="d_resumen"></div>
+  </div>
+</div>
+
+<!-- SCREEN 4: CLIENTE -->
+<div class="screen" id="screen-cliente">
+  <div class="contract-hero">
+    <img src="logo.png" alt="SinSentido" style="width:72px;height:72px;object-fit:contain;margin-bottom:12px">
+    <div class="ch-title">Contrato de Prestación de Servicios</div>
+    <div class="ch-sub" style="color:#888;font-size:9px;letter-spacing:.22em;text-transform:uppercase;margin-top:4px">Artísticos Musicales · SinSentido</div>
+    <span class="c-pill pendiente" id="cli_pill" style="margin-top:10px;display:inline-block">Pendiente</span>
+  </div>
+  <div class="body" id="cli_body"><div class="loader">Cargando contrato...</div></div>
+  <div class="footer-bar" id="cli_footer" style="display:none">
+    <button class="btn btn-gold" id="btnFirmar" disabled onclick="firmar()">✍ Firmar contrato</button>
+  </div>
+</div>
+
+<!-- SCREEN 5: ÉXITO -->
+<div class="screen" id="screen-success">
+  <div class="success-icon">✓</div>
+  <div class="success-title">Contrato firmado</div>
+  <p class="success-sub">Tu firma quedó registrada. SinSentido recibirá aviso de tu confirmación.</p>
+  <div class="sig-preview-box">
+    <div class="slabel" style="color:#666">Tu firma</div>
+    <img id="sigImg" src="" alt="firma">
+    <div class="sig-ts" id="sigTs"></div>
+  </div>
+  <div class="meta-row"><span>Contratante</span><span id="s_nom">—</span></div>
+  <div class="meta-row"><span>Fecha del evento</span><span id="s_fecha">—</span></div>
+  <div class="meta-row"><span>Lugar</span><span id="s_lugar">—</span></div>
+  <div class="meta-row"><span>Monto total</span><span id="s_monto">—</span></div>
+  <div class="meta-row"><span>Estado</span><span style="color:#4ade80">● Firmado</span></div>
+</div>
+
+<script>
+// ── SUPABASE ──
+let sb = null, currentC = null;
+function initSB(){
+  const u=localStorage.getItem('ss_url'),k=localStorage.getItem('ss_key');
+  if(u&&k){sb=supabase.createClient(u,k);document.getElementById('setupBanner').classList.add('hidden');return true;}
+  return false;
+}
+function saveConfig(){
+  const u=document.getElementById('cfgUrl').value.trim(),k=document.getElementById('cfgKey').value.trim();
+  if(!u||!k)return alert('Ingresa URL y Key');
+  localStorage.setItem('ss_url',u);localStorage.setItem('ss_key',k);
+  document.getElementById('configModal').classList.add('hidden');
+  initSB();loadDashboard();
+}
+document.getElementById('setupBanner').onclick=()=>{
+  document.getElementById('cfgUrl').value=localStorage.getItem('ss_url')||'';
+  document.getElementById('cfgKey').value=localStorage.getItem('ss_key')||'';
+  document.getElementById('configModal').classList.remove('hidden');
+};
+document.getElementById('sqlToggle').onclick=()=>{
+  const b=document.getElementById('sqlBox');b.style.display=b.style.display==='none'?'block':'none';
+};
+
+// ── ROUTING ──
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
+function goDashboard(){show('screen-dashboard');loadDashboard();}
+function goNuevo(){show('screen-nuevo');}
+function checkRoute(){
+  const m=location.hash.match(/^#contrato\/([a-f0-9-]{36})$/);
+  if(m){initSB();loadClienteView(m[1]);}
+  else{initSB();loadDashboard();}
+}
+window.addEventListener('hashchange',checkRoute);
+
+// ── DASHBOARD ──
+async function loadDashboard(){
+  show('screen-dashboard');
+  if(!sb){
+    document.getElementById('listaContratos').innerHTML='<div class="empty"><div class="ei">🎸</div><div class="et">Configura Supabase</div><div class="es">Toca el banner superior para conectar tu base de datos.</div></div>';
+    ['sTot','sPend','sFirm','sMes'].forEach(id=>document.getElementById(id).textContent='—');return;
+  }
+  document.getElementById('listaContratos').innerHTML='<div class="loader">Cargando...</div>';
+  const{data,error}=await sb.from('contratos').select('*').order('created_at',{ascending:false});
+  if(error){document.getElementById('listaContratos').innerHTML=`<div class="loader">Error: ${error.message}</div>`;return;}
+  const now=new Date();
+  const mes=data.filter(c=>{const d=new Date(c.created_at);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  document.getElementById('sTot').textContent=data.length;
+  document.getElementById('sPend').textContent=data.filter(c=>c.status==='pendiente').length;
+  document.getElementById('sFirm').textContent=data.filter(c=>c.status==='firmado').length;
+  document.getElementById('sMes').textContent=mes.length?'$'+mes.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString():'$0';
+  if(!data.length){document.getElementById('listaContratos').innerHTML='<div class="empty"><div class="ei">📄</div><div class="et">Sin contratos aún</div><div class="es">Toca "+ Nuevo" para generar tu primer contrato.</div></div>';return;}
+  document.getElementById('listaContratos').innerHTML=data.map(c=>`
+    <div class="c-item ${c.status}" onclick="verDetalle('${c.id}')">
+      <span class="c-pill ${c.status} c-pill-abs">${c.status}</span>
+      <div class="c-name">${c.contratante_nombre}</div>
+      <div class="c-meta">
+        <span>📅 <b>${fmtDate(c.fecha_evento)}</b></span>
+        <span>📍 <b>${c.lugar.split(',')[0]}</b></span>
+        <span>💵 <b>$${Number(c.monto_total).toLocaleString()} USD</b></span>
+      </div>
+    </div>`).join('');
+}
+
+// ── CÁLCULOS ──
+function calcPagos(){
+  const monto=parseFloat(document.getElementById('f_monto').value);
+  const fecha=document.getElementById('f_fecha').value;
+  const box=document.getElementById('calcBox');
+  if(!monto||monto<=0){box.style.display='none';return;}
+  box.style.display='block';
+  const ant=Math.round(monto/3*100)/100;
+  const sal=Math.round((monto-ant)*100)/100;
+  document.getElementById('cp_ant').textContent=usd(ant);
+  document.getElementById('cp_sal').textContent=usd(sal);
+  document.getElementById('cp_hex').textContent=usd(Math.round(monto*0.20*100)/100);
+  document.getElementById('cp_tot').textContent=usd(monto);
+  if(fecha){const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()-15);document.getElementById('cp_fl').textContent=fmtDate(d.toISOString().split('T')[0]);}
+  else document.getElementById('cp_fl').textContent='(ingresa fecha del evento)';
+}
+
+// ── CREAR ──
+async function crearContrato(){
+  const nombre=document.getElementById('f_nombre').value.trim();
+  const fecha=document.getElementById('f_fecha').value;
+  const lugar=document.getElementById('f_lugar').value.trim();
+  const monto=parseFloat(document.getElementById('f_monto').value);
+  if(!nombre||!fecha||!lugar||!monto)return alert('Llena los campos obligatorios (*)');
+  if(!sb)return alert('Configura Supabase primero');
+  const btn=document.getElementById('btnCrear');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const ant=Math.round(monto/3*100)/100;
+  const sal=Math.round((monto-ant)*100)/100;
+  const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()-15);
+  const{data,error}=await sb.from('contratos').insert({
+    contratante_nombre:nombre,
+    contratante_tel:document.getElementById('f_tel').value.trim()||null,
+    contratante_dir:document.getElementById('f_dir').value.trim()||null,
+    fecha_evento:fecha,lugar,
+    ciudad_firma:document.getElementById('f_ciudad').value.trim()||'Houston, Texas, EUA',
+    duracion_horas:parseFloat(document.getElementById('f_duracion').value)||2,
+    monto_total:monto,anticipo:ant,saldo:sal,
+    fecha_limite_saldo:d.toISOString().split('T')[0],
+    incluye_sonido:document.getElementById('f_sonido').checked,
+    medio_pago:document.getElementById('f_pago').value.trim(),
+    status:'pendiente'
+  }).select().single();
+  btn.disabled=false;btn.textContent='Generar contrato →';
+  if(error)return alert('Error: '+error.message);
+  ['f_nombre','f_tel','f_dir','f_fecha','f_lugar','f_ciudad','f_monto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f_duracion').value='2';
+  document.getElementById('f_sonido').checked=false;
+  document.getElementById('calcBox').style.display='none';
+  verDetalle(data.id);
+}
+
+// ── DETALLE ──
+async function verDetalle(id){
+  show('screen-detalle');
+  if(!sb)return;
+  const{data:c}=await sb.from('contratos').select('*').eq('id',id).single();
+  if(!c)return;
+  currentC=c;
+  document.getElementById('d_nombre').textContent=c.contratante_nombre;
+  const pill=document.getElementById('d_pill');pill.textContent=c.status;pill.className='c-pill '+c.status;
+  const link=location.origin+location.pathname+'#contrato/'+c.id;
+  document.getElementById('d_link').textContent=link;
+  document.getElementById('d_link').dataset.link=link;
+  document.getElementById('d_resumen').innerHTML=`
+    <div class="slabel">Resumen del contrato</div>
+    <div class="event-grid" style="margin-bottom:12px">
+      <div class="ef"><label>Contratante</label><span>${c.contratante_nombre}</span></div>
+      <div class="ef"><label>Fecha evento</label><span>${fmtDate(c.fecha_evento)}</span></div>
+      <div class="ef full"><label>Lugar</label><span>${c.lugar}</span></div>
+      <div class="ef"><label>Duración</label><span>${c.duracion_horas} hrs</span></div>
+      <div class="ef"><label>Monto total</label><span>${usd(c.monto_total)}</span></div>
+      <div class="ef"><label>Anticipo</label><span>${usd(c.anticipo)}</span></div>
+      <div class="ef"><label>Saldo antes del</label><span>${fmtDate(c.fecha_limite_saldo)}</span></div>
+      <div class="ef full"><label>Sonido e iluminación</label><span>${c.incluye_sonido?'Incluido — SinSentido lo provee':'No incluido — contratante provee equipo'}</span></div>
+      ${c.firmado_at?`<div class="ef full"><label>Firmado el</label><span>${new Date(c.firmado_at).toLocaleString('es-MX')}</span></div>`:''}
+    </div>`;
+}
+function copyLink(){
+  const link=document.getElementById('d_link').dataset.link;
+  navigator.clipboard.writeText(link).then(()=>{
+    const btn=document.querySelector('.link-box button');
+    btn.textContent='✓ Copiado';setTimeout(()=>btn.textContent='Copiar',2000);
+  });
+}
+
+// ── VISTA CLIENTE ──
+async function loadClienteView(id){
+  show('screen-cliente');
+  document.getElementById('setupBanner').classList.add('hidden');
+  if(!sb){document.getElementById('cli_body').innerHTML='<div class="empty"><div class="ei">⚠️</div><div class="et">Sistema no configurado</div></div>';return;}
+  const{data:c,error}=await sb.from('contratos').select('*').eq('id',id).single();
+  if(error||!c){document.getElementById('cli_body').innerHTML='<div class="empty"><div class="ei">😕</div><div class="et">Contrato no encontrado</div><div class="es">El link puede ser incorrecto.</div></div>';return;}
+  currentC=c;
+  const yafirmado=c.status==='firmado';
+  const pill=document.getElementById('cli_pill');pill.textContent=c.status;pill.className='c-pill '+c.status;
+  const hex=usd(Math.round(c.monto_total*0.20*100)/100);
+  const sonido=c.incluye_sonido
+    ?'<b>a) Equipo incluido:</b> SinSentido proveerá el equipo de sonido e iluminación necesario para la correcta ejecución.<br><br><b>b) Responsabilidad:</b> En caso de falla por causas imputables a SinSentido se resolverá de mutuo acuerdo.'
+    :'<b>a) Equipo no incluido:</b> EL CONTRATANTE deberá proveer equipo profesional adecuado con operador técnico calificado, con al menos <b>veinticuatro (24) horas</b> de anticipación.<br><br><b>b) Responsabilidad por deficiencias técnicas:</b> Si la actuación se viere afectada por causas del equipo del CONTRATANTE, SinSentido no incurrirá en responsabilidad ni procederá descuento alguno.';
+
+  document.getElementById('cli_body').innerHTML=`
+    <p style="font-size:11px;color:#666;line-height:1.75;padding:0 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      El presente instrumento lo celebran: el conjunto musical <b>"SINSENTIDO"</b>, representado por el C. <b>JOSE TADEO OLVERA GUTIERREZ</b> ("EL CONTRATADO"); y el C. <b>${c.contratante_nombre}</b> ("EL CONTRATANTE").
+    </p>
+    <div class="card card-accent">
+      <div class="slabel">Datos del evento</div>
+      <div class="event-grid">
+        <div class="ef"><label>Fecha</label><span>${fmtDate(c.fecha_evento)}</span></div>
+        <div class="ef"><label>Duración</label><span>${c.duracion_horas} horas en vivo</span></div>
+        <div class="ef full"><label>Lugar</label><span>${c.lugar}</span></div>
+        <div class="ef full"><label>Contratante</label><span>${c.contratante_nombre}</span></div>
+        <div class="ef full"><label>Ciudad de firma</label><span>${c.ciudad_firma||'Houston, Texas, EUA'}</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="slabel">Segunda. — Contraprestación económica</div>
+      <div class="pay-row"><div class="pl">Anticipo <small>Pagadero al momento de la firma</small></div><div class="pa">${usd(c.anticipo)}</div></div>
+      <div class="pay-row"><div class="pl">Saldo <small>A más tardar el ${fmtDate(c.fecha_limite_saldo)}</small></div><div class="pa">${usd(c.saldo)}</div></div>
+      <div class="pay-row total"><div class="pl">Total del contrato</div><div class="pa">${usd(c.monto_total)}</div></div>
+      <p style="margin-top:12px;font-size:10px;color:var(--mid);line-height:1.65">Medios de pago: ${c.medio_pago}. Los pagos se considerarán efectuados hasta que EL CONTRATADO confirme su recepción por escrito. El incumplimiento del saldo facultará a SinSentido para suspender la presentación sin responsabilidad y sin devolución del anticipo.</p>
+    </div>
+    <div class="card">
+      <div class="slabel">Cláusulas del contrato</div>
+      <div class="clause"><strong>Primera. — Objeto del contrato</strong>EL CONTRATADO se obliga a prestar sus servicios artísticos musicales en vivo el día <b>${fmtDate(c.fecha_evento)}</b> en <b>${c.lugar}</b>, con una duración de <b>${c.duracion_horas} horas</b> de música en vivo en modalidad de SETS, sin música grabada. Cualquier modificación deberá constar por escrito.</div>
+      <div class="clause"><strong>Tercera. — Horas adicionales</strong>Cada hora adicional genera un cargo del <b>20% del total pactado (${hex})</b>, pagadero en efectivo o Zelle antes del inicio de cada hora extra. Queda a entera discreción de EL CONTRATADO.</div>
+      <div class="clause"><strong>Cuarta. — Equipo de sonido e iluminación</strong>${sonido}</div>
+      <div class="clause"><strong>Quinta. — Cancelación por parte del contratante</strong><b>a) Más de 60 días antes:</b> Se devuelve el anticipo completo (menos gastos bancarios).<br><b>b) Entre 30 y 60 días:</b> Se retiene el 50% del anticipo como indemnización.<br><b>c) Menos de 30 días o no presentación:</b> Se pierde la totalidad del anticipo. Si el saldo ya fue liquidado, no procede devolución. Si no fue cubierto, EL CONTRATANTE deberá el 50% del saldo como indemnización por apartado de fecha y pérdida de oportunidad.</div>
+      <div class="clause"><strong>Sexta. — Cancelación por parte de SinSentido</strong>SinSentido devolverá la totalidad del anticipo dentro de <b>diez (10) días hábiles</b>. Esta devolución será la única obligación sin reclamación adicional de daños o perjuicios.</div>
+      <div class="clause"><strong>Séptima. — Fuerza mayor y caso fortuito</strong>a) Se devolverá el <b>50% del anticipo</b> como reconocimiento a gastos de logística.<br>b) Las partes podrán reprogramar, aplicando el anticipo restante a la nueva fecha.<br>c) La parte que invoque fuerza mayor deberá notificarlo dentro de <b>48 horas</b>, con documentación probatoria.</div>
+      <div class="clause"><strong>Octava. — Propiedad intelectual y derechos de autor</strong>Las interpretaciones y composiciones son propiedad exclusiva de SinSentido. Queda prohibido: reproducir o comercializar el material sin consentimiento escrito; usar el nombre "SinSentido" de forma que denigre al conjunto; alterar grabaciones para atribuirle interpretaciones que no realizó.</div>
+      <div class="clause"><strong>Novena. — Grabaciones y uso de imagen</strong>EL CONTRATANTE podrá grabar y fotografiar el evento para uso personal o promocional lícito. SinSentido conserva el derecho de usar material audiovisual del evento para su propia promoción. Ambas partes se obligan a un uso digno y no difamatorio.</div>
+      <div class="clause"><strong>Décima. — Confidencialidad</strong>Las partes guardarán confidencialidad sobre los términos económicos. La violación generará una pena del <b>20% del valor total del contrato</b>.</div>
+      <div class="clause"><strong>Decimoprimera. — Sustitución de integrantes</strong>SinSentido garantiza mínimo <b>3 de sus 4 integrantes habituales</b>. En fuerza mayor podrá incorporar músicos sustitutos de nivel equivalente, notificando con <b>48 horas</b> de anticipación. No procede descuento sobre la contraprestación.</div>
+      <div class="clause"><strong>Decimocuarta. — Pena convencional</strong>El incumplimiento económico generará una pena del <b>10% del monto insoluto por cada 7 días</b> de retraso, sin necesidad de requerimiento judicial.</div>
+      <div class="clause"><strong>Decimosexta. — Validez electrónica</strong>Este contrato tiene plena validez cuando sea firmado electrónicamente, conforme a la legislación de comercio electrónico del Estado de Texas (UETA). La firma electrónica tiene el mismo valor que la firma autógrafa.</div>
+      <div class="clause"><strong>Decimoséptima. — Jurisdicción</strong>Ley del <b>Estado de Texas, EUA</b>. Controversias: primero mediación certificada (30 días); si no se resuelve, <b>Tribunales del Condado de Harris, Houston, Texas</b>.</div>
+      <div class="clause"><strong>Decimoctava. — Integración del contrato</strong>Este instrumento constituye el acuerdo íntegro entre las partes, dejando sin efecto cualquier acuerdo verbal o escrito previo. Cualquier modificación deberá constar por escrito y ser firmada por ambas partes.</div>
+    </div>
+    ${yafirmado?`
+    <div class="card" style="background:#f0fdf4;border-color:#bbf7d0;text-align:center;padding:24px">
+      <div style="font-size:28px;margin-bottom:8px">✓</div>
+      <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--green);margin-bottom:4px">Contrato ya firmado</div>
+      <div style="font-size:10px;color:var(--mid)">Firmado el ${new Date(c.firmado_at).toLocaleString('es-MX')}</div>
+    </div>`:`
+    <div class="card">
+      <div class="slabel">Firma del contratante</div>
+      <p style="font-size:11px;color:#666;line-height:1.65;margin-bottom:14px">Al firmar confirmas ser <b>${c.contratante_nombre}</b> y haber leído y aceptado todas las cláusulas. Conforme a la legislación de Texas (UETA), esta firma electrónica tiene el mismo valor que la firma autógrafa.</p>
+      <div class="check-row">
+        <input type="checkbox" id="chkTerms" onchange="updateBtn()">
+        <label for="chkTerms">He leído y acepto todos los términos y condiciones del presente Contrato de Prestación de Servicios Artísticos Musicales con SinSentido</label>
+      </div>
+      <div class="canvas-outer">
+        <div class="canvas-ph" id="canvasPh"><span>Firma aquí con tu dedo</span></div>
+        <canvas id="sigCanvas"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-ghost" onclick="clearSig()">Borrar firma</button>
+      </div>
+    </div>`}
+  `;
+  document.getElementById('cli_footer').style.display=yafirmado?'none':'block';
+  if(!yafirmado)initCanvas();
+}
+
+// ── CANVAS ──
+let drawing=false,hasSig=false,sigCanvas,sigCtx;
+function initCanvas(){
+  sigCanvas=document.getElementById('sigCanvas');if(!sigCanvas)return;
+  sigCtx=sigCanvas.getContext('2d');resizeCanvas();
+  sigCanvas.addEventListener('mousedown',startDraw);
+  sigCanvas.addEventListener('mousemove',doDraw);
+  sigCanvas.addEventListener('mouseup',endDraw);
+  sigCanvas.addEventListener('mouseleave',endDraw);
+  sigCanvas.addEventListener('touchstart',startDraw,{passive:false});
+  sigCanvas.addEventListener('touchmove',doDraw,{passive:false});
+  sigCanvas.addEventListener('touchend',endDraw,{passive:false});
+}
+function resizeCanvas(){
+  if(!sigCanvas)return;
+  const rect=sigCanvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  sigCanvas.width=rect.width*dpr;sigCanvas.height=rect.height*dpr;
+  sigCtx.scale(dpr,dpr);sigCtx.strokeStyle='#111';sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigCtx.lineJoin='round';
+}
+function getPos(e){const rect=sigCanvas.getBoundingClientRect(),src=e.touches?e.touches[0]:e;return{x:src.clientX-rect.left,y:src.clientY-rect.top};}
+function startDraw(e){e.preventDefault();drawing=true;const p=getPos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);}
+function doDraw(e){
+  if(!drawing)return;e.preventDefault();
+  const p=getPos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();
+  if(!hasSig){hasSig=true;document.getElementById('canvasPh').style.opacity='0';updateBtn();}
+}
+function endDraw(e){e.preventDefault();drawing=false;}
+function clearSig(){
+  if(!sigCtx)return;
+  const dpr=window.devicePixelRatio||1;
+  sigCtx.clearRect(0,0,sigCanvas.width/dpr,sigCanvas.height/dpr);
+  hasSig=false;document.getElementById('canvasPh').style.opacity='1';updateBtn();
+}
+function updateBtn(){
+  const chk=document.getElementById('chkTerms'),btn=document.getElementById('btnFirmar');
+  if(btn)btn.disabled=!(hasSig&&chk&&chk.checked);
+}
+
+// ── FIRMAR ──
+async function firmar(){
+  if(!sigCanvas||!currentC)return;
+  const btn=document.getElementById('btnFirmar');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const dataURL=sigCanvas.toDataURL('image/png');
+  const now=new Date().toISOString();
+  const{error}=await sb.from('contratos').update({status:'firmado',firma_base64:dataURL,firmado_at:now}).eq('id',currentC.id);
+  if(error){alert('Error al guardar: '+error.message);btn.disabled=false;btn.textContent='✍ Firmar contrato';return;}
+  document.getElementById('sigImg').src=dataURL;
+  document.getElementById('sigTs').textContent='Firmado el '+new Date(now).toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})+' a las '+new Date(now).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('s_nom').textContent=currentC.contratante_nombre;
+  document.getElementById('s_fecha').textContent=fmtDate(currentC.fecha_evento);
+  document.getElementById('s_lugar').textContent=currentC.lugar.split(',')[0];
+  document.getElementById('s_monto').textContent=usd(currentC.monto_total);
+  show('screen-success');location.hash='';
+}
+
+// ── UTILS ──
+function fmtDate(s){
+  if(!s)return'—';
+  const[y,m,d]=s.split('T')[0].split('-');
+  const ms=['',' + "'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'" + '];
+  return`${parseInt(d)} de ${ms[parseInt(m)]} de ${y}`;
+}
+function usd(n){return'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})+' USD';}
+
+// Pre-load Supabase credentials
+localStorage.setItem('ss_url', 'https://hoipwzbzlcwrcnkvcnkw.supabase.co');
+localStorage.setItem('ss_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXB3emJ6bGN3cmNua3Zjbmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzgyNTUsImV4cCI6MjA4ODQxNDI1NX0.IDYdTw2d3uIYxsZrS8rOBWJQ27ZCA4b6AfOTHvM6RjU');
+checkRoute();
+</script>
+</body>
+</html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SinSentido · Contratos</title>
