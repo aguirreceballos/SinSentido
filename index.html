@@ -658,6 +658,9 @@ function fmtDate(s){
 }
 function usd(n){return'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})+' USD';}
 
+// Pre-load Supabase credentials
+localStorage.setItem('ss_url', 'https://hoipwzbzlcwrcnkvcnkw.supabase.co');
+localStorage.setItem('ss_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXB3emJ6bGN3cmNua3Zjbmt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzgyNTUsImV4cCI6MjA4ODQxNDI1NX0.IDYdTw2d3uIYxsZrS8rOBWJQ27ZCA4b6AfOTHvM6RjU');
 checkRoute();
 </script>
 </body>
