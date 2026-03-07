@@ -210,6 +210,18 @@ create policy "update" on contratos for update using (true);</pre>
   </div>
 </div>
 
+<!-- MODAL BORRAR -->
+<div class="modal-overlay hidden" id="borrarModal">
+  <div class="modal">
+    <h3>¿Borrar contrato?</h3>
+    <p style="font-size:11px;color:#666;line-height:1.65;margin-bottom:20px">Esta acción es permanente. El contrato y la firma se eliminarán de la base de datos.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn" style="flex:1;justify-content:center;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:13px;border-radius:9px;cursor:pointer" onclick="borrarContrato()">Sí, borrar</button>
+      <button class="btn btn-white" style="flex:1;justify-content:center;border:1px solid #ddd" onclick="document.getElementById('borrarModal').classList.add('hidden')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- SCREEN 1: DASHBOARD -->
 <div class="screen active" id="screen-dashboard">
   <div class="hdr">
@@ -334,6 +346,7 @@ create policy "update" on contratos for update using (true);</pre>
   </div>
   <div class="footer-bar" style="display:flex;gap:10px">
     <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="descargarPDF()">↓ Descargar PDF</button>
+    <button class="btn" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:10px 16px;border-radius:9px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer" onclick="confirmarBorrar()">🗑</button>
   </div>
 </div>
 
@@ -653,6 +666,21 @@ async function firmar(){
   show('screen-success');location.hash='';
 }
 
+
+
+// ── BORRAR ──
+function confirmarBorrar(){
+  if(!currentC)return;
+  document.getElementById('borrarModal').classList.remove('hidden');
+}
+async function borrarContrato(){
+  if(!currentC||!sb)return;
+  const{error}=await sb.from('contratos').delete().eq('id',currentC.id);
+  document.getElementById('borrarModal').classList.add('hidden');
+  if(error)return alert('Error: '+error.message);
+  currentC=null;
+  goDashboard();
+}
 
 // ── PDF ──
 async function descargarPDF(){
