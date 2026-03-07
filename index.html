@@ -6,6 +6,7 @@
 <title>SinSentido · Contratos</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -331,6 +332,9 @@ create policy "update" on contratos for update using (true);</pre>
     </div>
     <div class="card" id="d_resumen"></div>
   </div>
+  <div class="footer-bar" style="display:flex;gap:10px">
+    <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="descargarPDF()">↓ Descargar PDF</button>
+  </div>
 </div>
 
 <!-- SCREEN 4: CLIENTE -->
@@ -647,6 +651,116 @@ async function firmar(){
   document.getElementById('s_lugar').textContent=currentC.lugar.split(',')[0];
   document.getElementById('s_monto').textContent=usd(currentC.monto_total);
   show('screen-success');location.hash='';
+}
+
+
+// ── PDF ──
+async function descargarPDF(){
+  if(!currentC)return;
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'letter'});
+  const c=currentC;
+  const mg=20, pw=170, lh=6;
+  let y=20;
+
+  const addLine=(txt,size=10,bold=false,color=[0,0,0])=>{
+    doc.setFontSize(size);
+    doc.setFont('helvetica',bold?'bold':'normal');
+    doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(txt,pw);
+    lines.forEach(l=>{
+      if(y>270){doc.addPage();y=20;}
+      doc.text(l,mg,y);
+      y+=lh;
+    });
+  };
+  const addSpace=(n=4)=>{y+=n;};
+  const usdF=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2})+' USD';
+  const fmtF=s=>{if(!s)return'—';const[yr,mo,d]=s.split('T')[0].split('-');const ms=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];return`${parseInt(d)} de ${ms[parseInt(mo)]} de ${yr}`;};
+
+  // Header
+  doc.setFillColor(13,13,13);
+  doc.rect(0,0,216,28,'F');
+  doc.setFontSize(16);doc.setFont('helvetica','bold');doc.setTextColor(201,162,39);
+  doc.text('SinSentido',mg,12);
+  doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+  doc.text('CONTRATO DE PRESTACIÓN DE SERVICIOS ARTÍSTICOS MUSICALES',mg,19);
+  y=38;
+
+  addLine('CONTRATO DE PRESTACIÓN DE SERVICIOS ARTÍSTICOS MUSICALES',13,true,[13,13,13]);
+  addSpace();
+  addLine(`El presente instrumento lo celebran: el conjunto musical "SINSENTIDO", representado por el C. JOSE TADEO OLVERA GUTIERREZ ("EL CONTRATADO"); y el C. ${c.contratante_nombre} ("EL CONTRATANTE"), en la ciudad de ${c.ciudad_firma||'Houston, Texas, EUA'}.`,10);
+  addSpace();
+
+  // Datos del evento
+  addLine('DATOS DEL EVENTO',10,true,[201,162,39]);
+  addLine(`Fecha: ${fmtF(c.fecha_evento)}   |   Duración: ${c.duracion_horas} horas en vivo`);
+  addLine(`Lugar: ${c.lugar}`);
+  addLine(`Contratante: ${c.contratante_nombre}   |   Tel: ${c.contratante_tel||'—'}`);
+  addSpace();
+
+  // Pagos
+  addLine('SEGUNDA. — CONTRAPRESTACIÓN ECONÓMICA',10,true,[201,162,39]);
+  addLine(`Anticipo (al firmar): ${usdF(c.anticipo)}`);
+  addLine(`Saldo (a más tardar el ${fmtF(c.fecha_limite_saldo)}): ${usdF(c.saldo)}`);
+  addLine(`TOTAL DEL CONTRATO: ${usdF(c.monto_total)}`,10,true);
+  addLine(`Medios de pago: ${c.medio_pago||'Transferencia, cheque certificado, efectivo o Zelle'}`);
+  addSpace();
+
+  const clauses=[
+    ['PRIMERA. — OBJETO',`EL CONTRATADO se obliga a prestar sus servicios artísticos musicales en vivo el día ${fmtF(c.fecha_evento)} en ${c.lugar}, con una duración de ${c.duracion_horas} horas de música en vivo en modalidad de SETS, sin música grabada.`],
+    ['TERCERA. — HORAS ADICIONALES',`Cada hora adicional genera un cargo del 20% del total pactado ($${(c.monto_total*0.20).toFixed(2)} USD), pagadero en efectivo o Zelle antes del inicio de cada hora extra.`],
+    ['CUARTA. — SONIDO E ILUMINACIÓN',c.incluye_sonido?'EL CONTRATADO proveerá el equipo de sonido e iluminación necesario.':'EL CONTRATANTE deberá proveer equipo profesional con operador técnico calificado con al menos 24 horas de anticipación.'],
+    ['QUINTA. — CANCELACIÓN POR EL CONTRATANTE','Más de 60 días: devolución total del anticipo. Entre 30-60 días: retención del 50%. Menos de 30 días: pérdida total del anticipo.'],
+    ['SEXTA. — CANCELACIÓN POR SINSENTIDO','SinSentido devolverá la totalidad del anticipo dentro de 10 días hábiles.'],
+    ['SÉPTIMA. — FUERZA MAYOR','Se devolverá el 50% del anticipo. Las partes podrán reprogramar aplicando el anticipo restante.'],
+    ['OCTAVA. — PROPIEDAD INTELECTUAL','Las interpretaciones y composiciones son propiedad exclusiva de SinSentido.'],
+    ['NOVENA. — GRABACIONES E IMAGEN','EL CONTRATANTE podrá grabar y fotografiar el evento para uso personal o promocional lícito.'],
+    ['DÉCIMA. — CONFIDENCIALIDAD','Las partes guardarán confidencialidad sobre los términos económicos. La violación generará una pena del 20% del valor total.'],
+    ['DECIMOPRIMERA. — SUSTITUCIÓN','SinSentido garantiza mínimo 3 de sus 4 integrantes habituales.'],
+    ['DECIMOCUARTA. — PENA CONVENCIONAL','El incumplimiento económico generará una pena del 10% del monto insoluto por cada 7 días de retraso.'],
+    ['DECIMOSEXTA. — VALIDEZ ELECTRÓNICA','Este contrato tiene plena validez cuando sea firmado electrónicamente conforme a la legislación de Texas (UETA).'],
+    ['DECIMOSÉPTIMA. — JURISDICCIÓN','Ley del Estado de Texas, EUA. Controversias: Tribunales del Condado de Harris, Houston, Texas.'],
+    ['DECIMOCTAVA. — INTEGRACIÓN','Este instrumento constituye el acuerdo íntegro entre las partes, dejando sin efecto cualquier acuerdo previo.'],
+  ];
+
+  clauses.forEach(([title,text])=>{
+    addLine(title,9,true,[13,13,13]);
+    addLine(text,9);
+    addSpace(3);
+  });
+
+  // Firma
+  addSpace(4);
+  addLine('FIRMAS',10,true,[201,162,39]);
+  addSpace(2);
+  if(c.firma_base64){
+    try{
+      if(y>230){doc.addPage();y=20;}
+      doc.addImage(c.firma_base64,'PNG',mg,y,60,25);
+      y+=28;
+    }catch(e){}
+  } else {
+    doc.setDrawColor(180);
+    doc.line(mg,y+20,mg+70,y+20);
+    y+=24;
+  }
+  addLine(`${c.contratante_nombre}`);
+  addLine('EL CONTRATANTE',8,false,[120,120,120]);
+  addSpace(4);
+  doc.setDrawColor(180);
+  if(y>250){doc.addPage();y=20;}
+  doc.line(mg,y+20,mg+70,y+20);
+  y+=24;
+  addLine('JOSE TADEO OLVERA GUTIERREZ');
+  addLine('EL CONTRATADO — SinSentido',8,false,[120,120,120]);
+
+  if(c.firmado_at){
+    addSpace(6);
+    addLine(`Firmado digitalmente el ${new Date(c.firmado_at).toLocaleString('es-MX')} — Válido conforme a UETA Texas`,8,false,[150,150,150]);
+  }
+
+  doc.save(`Contrato_SinSentido_${c.contratante_nombre.replace(/\s+/g,'_')}.pdf`);
 }
 
 // ── UTILS ──
