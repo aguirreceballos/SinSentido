@@ -239,7 +239,13 @@ create policy "update" on contratos for update using (true);</pre>
       <div class="stat"><div class="n" id="sTot">—</div><div class="l">Total</div></div>
       <div class="stat"><div class="n" id="sPend">—</div><div class="l">Pendientes</div></div>
       <div class="stat"><div class="n" id="sFirm">—</div><div class="l">Firmados</div></div>
-      <div class="stat"><div class="n" id="sMes">—</div><div class="l">Mes actual</div></div>
+      <div class="stat"><div class="n" id="sMes" style="font-size:18px">—</div><div class="l">Mes actual</div></div>
+    </div>
+    <div class="stats" style="margin-top:-4px">
+      <div class="stat" style="border-top:3px solid var(--gold)"><div class="n" id="sPrivTot" style="font-size:16px">—</div><div class="l">🎉 Privados</div></div>
+      <div class="stat" style="border-top:3px solid #7c3aed"><div class="n" id="sPrivMes" style="font-size:14px">—</div><div class="l">Privados mes</div></div>
+      <div class="stat" style="border-top:3px solid #0ea5e9"><div class="n" id="sBarTot" style="font-size:16px">—</div><div class="l">🍺 Bares</div></div>
+      <div class="stat" style="border-top:3px solid #0ea5e9"><div class="n" id="sBarMes" style="font-size:14px">—</div><div class="l">Bares mes</div></div>
     </div>
     <div class="slabel">Contratos</div>
     <div id="listaContratos"><div class="loader">Cargando...</div></div>
@@ -300,11 +306,46 @@ create policy "update" on contratos for update using (true);</pre>
         <input type="number" id="f_monto" placeholder="6000" min="0" step="100" oninput="calcPagos()">
       </div>
       <div id="calcBox" class="calc-box" style="display:none">
-        <div class="calc-row"><span>Anticipo al firmar (≈33%)</span><span id="cp_ant">—</span></div>
+        <div class="calc-row" style="flex-direction:column;gap:6px;align-items:stretch;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:6px">
+          <span style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid)">Anticipo al firmar (editable)</span>
+          <input type="number" id="f_anticipo" placeholder="Ej. 2000" min="0" step="100"
+            style="background:#fff;border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;color:#111;outline:none;width:100%"
+            oninput="recalcDesdeAnticipo()">
+        </div>
         <div class="calc-row"><span>Saldo restante</span><span id="cp_sal">—</span></div>
         <div class="calc-row"><span>Fecha límite del saldo</span><span id="cp_fl">—</span></div>
         <div class="calc-row"><span>Hora extra (20%)</span><span id="cp_hex">—</span></div>
         <div class="calc-row"><span>Total</span><span id="cp_tot">—</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="slabel">Tipo de contrato</div>
+      <div class="form-group">
+        <label>Evento privado o bar/venue</label>
+        <select id="f_tipo" onchange="toggleTipo()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none;-webkit-appearance:none">
+          <option value="privado">Evento privado (quinceañera, boda, fiesta…)</option>
+          <option value="bar">Bar / venue</option>
+        </select>
+      </div>
+      <div id="bar_fields" style="display:none">
+        <div class="form-group">
+          <label>Nombre del bar / establecimiento</label>
+          <input type="text" id="f_bar_nombre" placeholder="Bar El Paraíso" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Sets pactados</label>
+            <input type="number" id="f_bar_sets" placeholder="3" min="1" value="3" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none">
+          </div>
+          <div class="form-group">
+            <label>Duración por set (min)</label>
+            <input type="number" id="f_bar_durset" placeholder="45" min="15" value="45" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Garantía mínima / consumo (opcional)</label>
+          <input type="text" id="f_bar_garantia" placeholder="$500 USD de consumo mínimo garantizado" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none">
+        </div>
       </div>
     </div>
     <div class="card">
@@ -428,18 +469,27 @@ async function loadDashboard(){
   if(error){document.getElementById('listaContratos').innerHTML=`<div class="loader">Error: ${error.message}</div>`;return;}
   const now=new Date();
   const mes=data.filter(c=>{const d=new Date(c.created_at);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const privados=data.filter(c=>c.tipo_contrato!=='bar');
+  const bares=data.filter(c=>c.tipo_contrato==='bar');
+  const mesMonto=mes.reduce((s,c)=>s+(c.monto_total||0),0);
+  const mesPriv=mes.filter(c=>c.tipo_contrato!=='bar');
+  const mesBar=mes.filter(c=>c.tipo_contrato==='bar');
   document.getElementById('sTot').textContent=data.length;
   document.getElementById('sPend').textContent=data.filter(c=>c.status==='pendiente').length;
   document.getElementById('sFirm').textContent=data.filter(c=>c.status==='firmado').length;
-  document.getElementById('sMes').textContent=mes.length?'$'+mes.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString():'$0';
+  document.getElementById('sMes').textContent=mes.length?'$'+mesMonto.toLocaleString()+' / '+mes.length+' tocadas':'$0';
+  document.getElementById('sPrivTot').textContent=privados.length+' · $'+privados.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString();
+  document.getElementById('sPrivMes').textContent='$'+mesPriv.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString()+' ('+mesPriv.length+')';
+  document.getElementById('sBarTot').textContent=bares.length+' · $'+bares.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString();
+  document.getElementById('sBarMes').textContent='$'+mesBar.reduce((s,c)=>s+(c.monto_total||0),0).toLocaleString()+' ('+mesBar.length+')';
   if(!data.length){document.getElementById('listaContratos').innerHTML='<div class="empty"><div class="ei">📄</div><div class="et">Sin contratos aún</div><div class="es">Toca "+ Nuevo" para generar tu primer contrato.</div></div>';return;}
   document.getElementById('listaContratos').innerHTML=data.map(c=>`
     <div class="c-item ${c.status}" onclick="verDetalle('${c.id}')">
       <span class="c-pill ${c.status} c-pill-abs">${c.status}</span>
-      <div class="c-name">${c.contratante_nombre}</div>
+      <div class="c-name">${c.contratante_nombre}${c.tipo_contrato==='bar'?' <span style="font-size:11px;color:#0ea5e9">🍺 Bar</span>':' <span style="font-size:11px;color:var(--gold)">🎉 Privado</span>'}</div>
       <div class="c-meta">
         <span>📅 <b>${fmtDate(c.fecha_evento)}</b></span>
-        <span>📍 <b>${c.lugar.split(',')[0]}</b></span>
+        <span>📍 <b>${(c.bar_nombre||c.lugar).split(',')[0]}</b></span>
         <span>💵 <b>$${Number(c.monto_total).toLocaleString()} USD</b></span>
       </div>
     </div>`).join('');
@@ -452,14 +502,26 @@ function calcPagos(){
   const box=document.getElementById('calcBox');
   if(!monto||monto<=0){box.style.display='none';return;}
   box.style.display='block';
-  const ant=Math.round(monto/3*100)/100;
+  // Suggest 33% as default anticipo if empty
+  const antInput=document.getElementById('f_anticipo');
+  if(!antInput.value) antInput.value=Math.round(monto/3*100)/100;
+  recalcDesdeAnticipo();
+}
+function recalcDesdeAnticipo(){
+  const monto=parseFloat(document.getElementById('f_monto').value)||0;
+  const fecha=document.getElementById('f_fecha').value;
+  const antInput=document.getElementById('f_anticipo');
+  const ant=parseFloat(antInput.value)||0;
   const sal=Math.round((monto-ant)*100)/100;
-  document.getElementById('cp_ant').textContent=usd(ant);
-  document.getElementById('cp_sal').textContent=usd(sal);
+  document.getElementById('cp_sal').textContent=sal>=0?usd(sal):'⚠️ Anticipo mayor al total';
   document.getElementById('cp_hex').textContent=usd(Math.round(monto*0.20*100)/100);
   document.getElementById('cp_tot').textContent=usd(monto);
   if(fecha){const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()-15);document.getElementById('cp_fl').textContent=fmtDate(d.toISOString().split('T')[0]);}
   else document.getElementById('cp_fl').textContent='(ingresa fecha del evento)';
+}
+function toggleTipo(){
+  const tipo=document.getElementById('f_tipo').value;
+  document.getElementById('bar_fields').style.display=tipo==='bar'?'block':'none';
 }
 
 // ── CREAR ──
@@ -472,9 +534,14 @@ async function crearContrato(){
   if(!sb)return alert('Configura Supabase primero');
   const btn=document.getElementById('btnCrear');
   btn.disabled=true;btn.textContent='Guardando...';
-  const ant=Math.round(monto/3*100)/100;
+  const ant=parseFloat(document.getElementById('f_anticipo').value)||Math.round(monto/3*100)/100;
   const sal=Math.round((monto-ant)*100)/100;
   const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()-15);
+  const tipo=document.getElementById('f_tipo').value;
+  const barNombre=tipo==='bar'?(document.getElementById('f_bar_nombre').value.trim()||null):null;
+  const barSets=tipo==='bar'?(parseInt(document.getElementById('f_bar_sets').value)||3):null;
+  const barDurset=tipo==='bar'?(parseInt(document.getElementById('f_bar_durset').value)||45):null;
+  const barGarantia=tipo==='bar'?(document.getElementById('f_bar_garantia').value.trim()||null):null;
   const{data,error}=await sb.from('contratos').insert({
     contratante_nombre:nombre,
     contratante_tel:document.getElementById('f_tel').value.trim()||null,
@@ -486,13 +553,19 @@ async function crearContrato(){
     fecha_limite_saldo:d.toISOString().split('T')[0],
     incluye_sonido:document.getElementById('f_sonido').checked,
     medio_pago:document.getElementById('f_pago').value.trim(),
+    tipo_contrato:tipo,
+    bar_nombre:barNombre,bar_sets:barSets,bar_durset:barDurset,bar_garantia:barGarantia,
     status:'pendiente'
   }).select().single();
   btn.disabled=false;btn.textContent='Generar contrato →';
   if(error)return alert('Error: '+error.message);
-  ['f_nombre','f_tel','f_dir','f_fecha','f_lugar','f_ciudad','f_monto'].forEach(id=>document.getElementById(id).value='');
+  ['f_nombre','f_tel','f_dir','f_fecha','f_lugar','f_ciudad','f_monto','f_anticipo','f_bar_nombre','f_bar_garantia'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('f_duracion').value='2';
+  document.getElementById('f_bar_sets').value='3';
+  document.getElementById('f_bar_durset').value='45';
   document.getElementById('f_sonido').checked=false;
+  document.getElementById('f_tipo').value='privado';
+  document.getElementById('bar_fields').style.display='none';
   document.getElementById('calcBox').style.display='none';
   verDetalle(data.id);
 }
@@ -546,9 +619,13 @@ async function loadClienteView(id){
     ?'<b>a) Equipo incluido:</b> SinSentido proveerá el equipo de sonido e iluminación necesario para la correcta ejecución.<br><br><b>b) Responsabilidad:</b> En caso de falla por causas imputables a SinSentido se resolverá de mutuo acuerdo.'
     :'<b>a) Equipo no incluido:</b> EL CONTRATANTE deberá proveer equipo profesional adecuado con operador técnico calificado, con al menos <b>veinticuatro (24) horas</b> de anticipación.<br><br><b>b) Responsabilidad por deficiencias técnicas:</b> Si la actuación se viere afectada por causas del equipo del CONTRATANTE, SinSentido no incurrirá en responsabilidad ni procederá descuento alguno.';
 
+  const esBar = c.tipo_contrato === 'bar';
+  const parteB = esBar
+    ? `el establecimiento <b>"${c.bar_nombre||c.contratante_nombre}"</b>, representado por el C. <b>${c.contratante_nombre}</b> ("EL CONTRATANTE")`
+    : `el C. <b>${c.contratante_nombre}</b> ("EL CONTRATANTE")`;
   document.getElementById('cli_body').innerHTML=`
     <p style="font-size:11px;color:#666;line-height:1.75;padding:0 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px">
-      El presente instrumento lo celebran: el conjunto musical <b>"SINSENTIDO"</b>, representado por el C. <b>JOSE TADEO OLVERA GUTIERREZ</b> ("EL CONTRATADO"); y el C. <b>${c.contratante_nombre}</b> ("EL CONTRATANTE").
+      El presente instrumento${esBar?' de presentación en establecimiento público':''} lo celebran: el conjunto musical <b>"SINSENTIDO"</b>, representado por el C. <b>JOSE TADEO OLVERA GUTIERREZ</b> ("EL CONTRATADO"); y ${parteB}.
     </p>
     <div class="card card-accent">
       <div class="slabel">Datos del evento</div>
@@ -569,7 +646,11 @@ async function loadClienteView(id){
     </div>
     <div class="card">
       <div class="slabel">Cláusulas del contrato</div>
-      <div class="clause"><strong>Primera. — Objeto del contrato</strong>EL CONTRATADO se obliga a prestar sus servicios artísticos musicales en vivo el día <b>${fmtDate(c.fecha_evento)}</b> en <b>${c.lugar}</b>, con una duración de <b>${c.duracion_horas} horas</b> de música en vivo en modalidad de SETS, sin música grabada. Cualquier modificación deberá constar por escrito.</div>
+      <div class="clause"><strong>Primera. — Objeto del contrato</strong>${esBar
+        ? `EL CONTRATADO se obliga a realizar <b>${c.bar_sets||3} sets musicales</b> de <b>${c.bar_durset||45} minutos</b> cada uno en el establecimiento <b>${c.bar_nombre||c.lugar}</b>, el día <b>${fmtDate(c.fecha_evento)}</b>. Duración total estimada: <b>${Math.round((c.bar_sets||3)*(c.bar_durset||45)/60*10)/10} horas</b>. Cualquier modificación deberá constar por escrito.`
+        : `EL CONTRATADO se obliga a prestar sus servicios artísticos musicales en vivo el día <b>${fmtDate(c.fecha_evento)}</b> en <b>${c.lugar}</b>, con una duración de <b>${c.duracion_horas} horas</b> de música en vivo en modalidad de SETS, sin música grabada. Cualquier modificación deberá constar por escrito.`
+      }</div>
+      ${esBar && c.bar_garantia ? `<div class="clause"><strong>Primera Bis. — Garantía mínima del establecimiento</strong>EL CONTRATANTE garantiza una afluencia o consumo mínimo de <b>${c.bar_garantia}</b>. En caso de no alcanzarse dicho mínimo, ello no afectará la contraprestación pactada a favor de EL CONTRATADO.</div>` : ''}
       <div class="clause"><strong>Tercera. — Horas adicionales</strong>Cada hora adicional genera un cargo del <b>20% del total pactado (${hex})</b>, pagadero en efectivo o Zelle antes del inicio de cada hora extra. Queda a entera discreción de EL CONTRATADO.</div>
       <div class="clause"><strong>Cuarta. — Equipo de sonido e iluminación</strong>${sonido}</div>
       <div class="clause"><strong>Quinta. — Cancelación por parte del contratante</strong><b>a) Más de 60 días antes:</b> Se devuelve el anticipo completo (menos gastos bancarios).<br><b>b) Entre 30 y 60 días:</b> Se retiene el 50% del anticipo como indemnización.<br><b>c) Menos de 30 días o no presentación:</b> Se pierde la totalidad del anticipo. Si el saldo ya fue liquidado, no procede devolución. Si no fue cubierto, EL CONTRATANTE deberá el 50% del saldo como indemnización por apartado de fecha y pérdida de oportunidad.</div>
