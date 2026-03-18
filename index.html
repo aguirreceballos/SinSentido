@@ -354,6 +354,10 @@ create policy "update" on contratos for update using (true);</pre>
         <div><div class="tl">¿Incluye equipo de sonido?</div><div class="ts">Desactivado = el contratante provee equipo</div></div>
         <label class="switch"><input type="checkbox" id="f_sonido"><span class="slider"></span></label>
       </div>
+      <div class="form-group" style="margin-top:14px">
+        <label>Extras / Riders <span style="font-weight:400;color:#888">(opcional)</span></label>
+        <textarea id="f_extras" placeholder="Ej: DJ apertura, Equipo de sonido profesional, Barra de shots, Pantalla LED, Servicio de bar…" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--black);outline:none;resize:vertical;min-height:80px"></textarea>
+      </div>
       <div class="form-group" style="margin-top:14px;margin-bottom:0">
         <label>Medios de pago aceptados</label>
         <input type="text" id="f_pago" value="Transferencia bancaria, cheque certificado, efectivo o Zelle">
@@ -555,6 +559,7 @@ async function crearContrato(){
     medio_pago:document.getElementById('f_pago').value.trim(),
     tipo_contrato:tipo,
     bar_nombre:barNombre,bar_sets:barSets,bar_durset:barDurset,bar_garantia:barGarantia,
+    extras:document.getElementById('f_extras').value.trim()||null,
     status:'pendiente'
   }).select().single();
   btn.disabled=false;btn.textContent='Generar contrato →';
@@ -563,6 +568,7 @@ async function crearContrato(){
   document.getElementById('f_duracion').value='2';
   document.getElementById('f_bar_sets').value='3';
   document.getElementById('f_bar_durset').value='45';
+  document.getElementById('f_extras').value='';
   document.getElementById('f_sonido').checked=false;
   document.getElementById('f_tipo').value='privado';
   document.getElementById('bar_fields').style.display='none';
@@ -593,6 +599,7 @@ async function verDetalle(id){
       <div class="ef"><label>Anticipo</label><span>${usd(c.anticipo)}</span></div>
       <div class="ef"><label>Saldo antes del</label><span>${fmtDate(c.fecha_limite_saldo)}</span></div>
       <div class="ef full"><label>Sonido e iluminación</label><span>${c.incluye_sonido?'Incluido — SinSentido lo provee':'No incluido — contratante provee equipo'}</span></div>
+      ${c.extras?`<div class="ef full"><label>Extras / Riders</label><span style="white-space:pre-line">${c.extras}</span></div>`:''}
       ${c.firmado_at?`<div class="ef full"><label>Firmado el</label><span>${new Date(c.firmado_at).toLocaleString('es-MX')}</span></div>`:''}
     </div>`;
 }
@@ -664,6 +671,7 @@ async function loadClienteView(id){
       <div class="clause"><strong>Decimosexta. — Validez electrónica</strong>Este contrato tiene plena validez cuando sea firmado electrónicamente, conforme a la legislación de comercio electrónico del Estado de Texas (UETA). La firma electrónica tiene el mismo valor que la firma autógrafa.</div>
       <div class="clause"><strong>Decimoséptima. — Jurisdicción</strong>Ley del <b>Estado de Texas, EUA</b>. Controversias: primero mediación certificada (30 días); si no se resuelve, <b>Tribunales del Condado de Harris, Houston, Texas</b>.</div>
       <div class="clause"><strong>Decimoctava. — Integración del contrato</strong>Este instrumento constituye el acuerdo íntegro entre las partes, dejando sin efecto cualquier acuerdo verbal o escrito previo. Cualquier modificación deberá constar por escrito y ser firmada por ambas partes.</div>
+      ${c.extras?`<div class="clause" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:14px 16px;border-radius:0 8px 8px 0"><strong>Anexo A. — Extras y Riders incluidos en el presente contrato</strong>${c.extras.replace(/\n/g,'<br>')}</div>`:''}
     </div>
     ${yafirmado?`
     <div class="card" style="background:#f0fdf4;border-color:#bbf7d0;text-align:center;padding:24px">
@@ -833,6 +841,9 @@ async function descargarPDF(){
     ['DECIMOCTAVA. — INTEGRACIÓN','Este instrumento constituye el acuerdo íntegro entre las partes, dejando sin efecto cualquier acuerdo previo.'],
   ];
 
+  if(c.extras){
+    clauses.push(['ANEXO A. — EXTRAS Y RIDERS',c.extras]);
+  }
   clauses.forEach(([title,text])=>{
     addLine(title,9,true,[13,13,13]);
     addLine(text,9);
